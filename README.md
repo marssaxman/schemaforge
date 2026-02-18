@@ -1,26 +1,28 @@
-# table-spec
-Domain-specific language for table & query schemas, yielding includable C++
-code implementing a bespoke in-memory, non-persistent database engine.
+# Schemaforge
+This is a domain-specific language for lightweight database schemas.
+Schemaforge compiles a schema into a bespoke, in-memory database engine,
+emitting source code you can include into your project.
 
-This is an experiment in its early stages.
+This project is in early development.
+
 
 ## What is this for?
 
-Wouldn't it be convenient if one could declare relational data structures
-inside one's C++ programs? I often find myself building little ad-hoc databases
-out of simple structs and standard containers. Instead of doing this by hand,
-I'd like to use a tool which would generate all the busywork necessary for
-efficient access and consistent state.
+Schemaforge is not a conventional database engine, but a declarative,
+automated alternative to managing data with structs and containers. It is
+meant to be lightweight enough that you might write a schema for a single
+module, or a single operation, letting schemaforge manage memory, indexing,
+query optimization, and constraint enforcement details while you focus on the
+process you actually care about.
 
-While it might be possible using some kind of nested template wizardry, that
-doesn't sound like any fun to write or maintain. Instead, following the example
-of `tablegen` from the LLVM project, this tool compiles a schema DSL into C++
-source code.
+Persistence, network access, migration, and ad-hoc queries are all out of
+scope for this tool.
+
 
 ## Usage
 
-To build, simply `make`, then look for `build/table-spec`.
+To build, simply `make`, then look for `build/schemaforge`.
 
-Invoke `table-spec <FILE>` to process a schema file.
+Invoke `schemaforge <FILE>` to process a schema file.
 
 

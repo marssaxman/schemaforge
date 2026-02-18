@@ -1,5 +1,5 @@
 # project-specific settings
-EXECNAME:=table-spec
+EXECNAME:=schemaforge
 CCFLAGS:=-Werror -Wall -g
 LDFLAGS:=-lstdc++
 
