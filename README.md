@@ -21,8 +21,7 @@ scope for this tool.
 
 ## Usage
 
-To build, simply `make`, then look for `build/schemaforge`.
+`schemaforge check <FILE>`
 
-Invoke `schemaforge <FILE>` to process a schema file.
 
 
