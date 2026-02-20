@@ -3,11 +3,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 #[test]
-fn ast_to_schema_fixtures() {
+fn resolve_fixtures() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let fixtures_dir = manifest_dir.join("tests/fixtures/ast_to_schema");
+    let fixtures_dir = manifest_dir.join("tests/fixtures/resolve");
 
-    let spec = registry::find_pass("ast-to-schema").expect("pass should exist");
+    let spec = registry::find_pass("resolve").expect("pass should exist");
 
     let entries = fs::read_dir(&fixtures_dir).expect("read fixtures directory");
     for entry in entries {

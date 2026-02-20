@@ -16,14 +16,14 @@ pub fn find_pass(name: &str) -> Option<&'static PassSpec> {
     PASS_REGISTRY.iter().find(|spec| spec.name == name)
 }
 
-fn run_ast_to_schema(input: &str) -> Result<String, Error> {
+fn run_resolve(input: &str) -> Result<String, Error> {
     let ast = ir::ast::parse_kdl(input)?;
-    let schema = passes::ast_to_schema::run(&ast)?;
+    let schema = passes::resolve::run(&ast)?;
     Ok(ir::schema::print_kdl(&schema))
 }
 
 static PASS_REGISTRY: [PassSpec; 1] = [PassSpec {
-    name: "ast-to-schema",
-    help: "Lower AST IR to Schema IR",
-    run: run_ast_to_schema,
+    name: "resolve",
+    help: "Resolve AST into Schema IR",
+    run: run_resolve,
 }];

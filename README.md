@@ -30,7 +30,7 @@ cargo run -p schemaforge-cli -- list-passes
 Run a pass (use `-` for stdin/stdout):
 
 ```bash
-cargo run -p schemaforge-cli -- run-pass ast-to-schema --in fixtures/input.kdl --out -
+cargo run -p schemaforge-cli -- run-pass resolve --in fixtures/input.kdl --out -
 ```
 
 ## Tests
@@ -38,4 +38,3 @@ cargo run -p schemaforge-cli -- run-pass ast-to-schema --in fixtures/input.kdl -
 ```bash
 cargo test
 ```
-
