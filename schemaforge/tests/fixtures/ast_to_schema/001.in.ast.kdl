@@ -1,0 +1,8 @@
+table "users" {
+  field "name" type="String"
+  field "id" type="Uuid"
+}
+table "accounts" {
+  field "user_id" type="Uuid"
+  field "id" type="Uuid"
+}

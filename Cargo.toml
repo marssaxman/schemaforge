@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  "schemaforge",
+  "schemaforge-cli",
+]
+resolver = "2"

@@ -1,0 +1,8 @@
+[package]
+name = "schemaforge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kdl = "4"
+thiserror = "1"

@@ -19,9 +19,23 @@ Persistence, network access, migration, and ad-hoc queries are all out of
 scope for this tool.
 
 
-## Usage
+## Quickstart
 
-`schemaforge check <FILE>`
+List passes:
 
+```bash
+cargo run -p schemaforge-cli -- list-passes
+```
 
+Run a pass (use `-` for stdin/stdout):
+
+```bash
+cargo run -p schemaforge-cli -- run-pass ast-to-schema --in fixtures/input.kdl --out -
+```
+
+## Tests
+
+```bash
+cargo test
+```
 
