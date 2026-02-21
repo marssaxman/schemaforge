@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::ir::schema::{FieldIr, SchemaIr, TableIr};
+use crate::plan::ColumnId;
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 
 pub fn parse_kdl(src: &str) -> Result<SchemaIr, Error> {
@@ -13,18 +14,30 @@ pub fn parse_kdl(src: &str) -> Result<SchemaIr, Error> {
                 node.name().value()
             )));
         }
-        let table = parse_table(node)?;
-        tables.push(table);
+
+        let table_id = tables.len();
+        tables.push(parse_table(node, table_id)?);
     }
 
-    Ok(SchemaIr { tables })
+    Ok(SchemaIr {
+        tables,
+        procs: Vec::new(),
+        queries: Vec::new(),
+    })
 }
 
 pub fn print_kdl(value: &SchemaIr) -> String {
     let mut tables = value.tables.clone();
     tables.sort_by(|a, b| a.name.cmp(&b.name));
 
+    let mut procs = value.procs.clone();
+    procs.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let mut queries = value.queries.clone();
+    queries.sort_by(|a, b| a.name.cmp(&b.name));
+
     let mut out = String::new();
+
     for table in tables {
         let mut fields = table.fields.clone();
         fields.sort_by(|a, b| a.name.cmp(&b.name));
@@ -45,10 +58,55 @@ pub fn print_kdl(value: &SchemaIr) -> String {
         out.push_str("}\n");
     }
 
+    for proc_def in procs {
+        let table_name = table_name(value, proc_def.table);
+        out.push_str(&format!(
+            "proc \"{}\" table=\"{}\"",
+            escape(&proc_def.name),
+            escape(table_name)
+        ));
+
+        if proc_def.params.is_empty() {
+            out.push('\n');
+            continue;
+        }
+
+        out.push_str(" {\n");
+        for param in proc_def.params {
+            out.push_str(&format!(
+                "  param \"{}\" type=\"{}\"\n",
+                escape(&param.name),
+                escape(&param.ty)
+            ));
+        }
+        out.push_str("}\n");
+    }
+
+    for query in queries {
+        let table_name = table_name(value, query.table);
+        out.push_str(&format!(
+            "query \"{}\" table=\"{}\"",
+            escape(&query.name),
+            escape(table_name)
+        ));
+
+        if query.projection.is_empty() {
+            out.push('\n');
+            continue;
+        }
+
+        out.push_str(" {\n");
+        for column_id in query.projection {
+            let column_name = column_name(value, column_id);
+            out.push_str(&format!("  project \"{}\"\n", escape(column_name)));
+        }
+        out.push_str("}\n");
+    }
+
     out
 }
 
-fn parse_table(node: &KdlNode) -> Result<TableIr, Error> {
+fn parse_table(node: &KdlNode, table_id: usize) -> Result<TableIr, Error> {
     let name = expect_single_string_value(node, "table")?;
     ensure_no_properties(node, "table")?;
 
@@ -62,20 +120,35 @@ fn parse_table(node: &KdlNode) -> Result<TableIr, Error> {
                     name
                 )));
             }
-            let field = parse_field(child, &name)?;
-            fields.push(field);
+            let field_id = ColumnId {
+                table: table_id,
+                column: fields.len(),
+            };
+            fields.push(parse_field(child, &name, field_id)?);
         }
     }
 
-    Ok(TableIr { name, fields })
+    Ok(TableIr {
+        id: table_id,
+        name,
+        fields,
+    })
 }
 
-fn parse_field(node: &KdlNode, table_name: &str) -> Result<FieldIr, Error> {
+fn parse_field(
+    node: &KdlNode,
+    table_name: &str,
+    field_id: ColumnId,
+) -> Result<FieldIr, Error> {
     let name = expect_single_string_value(node, "field")?;
     let ty = expect_string_property(node, "type")?;
     ensure_only_property(node, "field", "type", table_name)?;
 
-    Ok(FieldIr { name, ty })
+    Ok(FieldIr {
+        id: field_id,
+        name,
+        ty,
+    })
 }
 
 fn expect_single_string_value(
@@ -154,6 +227,23 @@ fn ensure_only_property(
         }
     }
     Ok(())
+}
+
+fn table_name(schema: &SchemaIr, table_id: usize) -> &str {
+    schema
+        .tables
+        .get(table_id)
+        .map(|table| table.name.as_str())
+        .unwrap_or("<invalid>")
+}
+
+fn column_name(schema: &SchemaIr, column_id: ColumnId) -> &str {
+    schema
+        .tables
+        .get(column_id.table)
+        .and_then(|table| table.fields.get(column_id.column))
+        .map(|field| field.name.as_str())
+        .unwrap_or("<invalid>")
 }
 
 fn escape(value: &str) -> String {

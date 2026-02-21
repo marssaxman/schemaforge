@@ -2,4 +2,4 @@ mod kdl;
 mod types;
 
 pub use kdl::{parse_kdl, print_kdl};
-pub use types::{AstField, AstSchema, AstTable};
+pub use types::{AstField, AstParam, AstProc, AstQuery, AstSchema, AstTable};

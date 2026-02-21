@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use schemaforge::build;
 use schemaforge::registry;
 use schemaforge::Error;
 use std::fs;
@@ -22,6 +23,9 @@ enum Commands {
         input: PathBuf,
         #[arg(long = "out")]
         output: PathBuf,
+    },
+    Build {
+        input: PathBuf,
     },
 }
 
@@ -52,6 +56,10 @@ fn run() -> Result<(), Error> {
             let input_text = read_input(&input)?;
             let result = (spec.run)(&input_text)?;
             write_output(&output, &result)?;
+        }
+        Commands::Build { input } => {
+            let output_dir = build::build(&input)?;
+            println!("{}", output_dir.display());
         }
     }
 

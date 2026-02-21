@@ -1,30 +1,48 @@
 use crate::error::Error;
-use crate::ir::ast::{AstField, AstSchema, AstTable};
+use crate::ir::ast::{
+    AstField, AstParam, AstProc, AstQuery, AstSchema, AstTable,
+};
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 
 pub fn parse_kdl(src: &str) -> Result<AstSchema, Error> {
     let doc: KdlDocument = src.parse()?;
     let mut tables = Vec::new();
+    let mut procs = Vec::new();
+    let mut queries = Vec::new();
 
     for node in doc.nodes() {
-        if node.name().value() != "table" {
-            return Err(Error::Parse(format!(
-                "unknown root node '{}', expected 'table'",
-                node.name().value()
-            )));
+        match node.name().value() {
+            "table" => tables.push(parse_table(node)?),
+            "proc" => procs.push(parse_proc(node)?),
+            "query" => queries.push(parse_query(node)?),
+            other => {
+                return Err(Error::Parse(format!(
+                "unknown root node '{}', expected 'table', 'proc', or 'query'",
+                other
+            )))
+            }
         }
-        let table = parse_table(node)?;
-        tables.push(table);
     }
 
-    Ok(AstSchema { tables })
+    Ok(AstSchema {
+        tables,
+        procs,
+        queries,
+    })
 }
 
 pub fn print_kdl(value: &AstSchema) -> String {
     let mut tables = value.tables.clone();
     tables.sort_by(|a, b| a.name.cmp(&b.name));
 
+    let mut procs = value.procs.clone();
+    procs.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let mut queries = value.queries.clone();
+    queries.sort_by(|a, b| a.name.cmp(&b.name));
+
     let mut out = String::new();
+
     for table in tables {
         let mut fields = table.fields.clone();
         fields.sort_by(|a, b| a.name.cmp(&b.name));
@@ -41,6 +59,48 @@ pub fn print_kdl(value: &AstSchema) -> String {
                 escape(&field.name),
                 escape(&field.ty)
             ));
+        }
+        out.push_str("}\n");
+    }
+
+    for proc_def in procs {
+        out.push_str(&format!(
+            "proc \"{}\" table=\"{}\"",
+            escape(&proc_def.name),
+            escape(&proc_def.table)
+        ));
+
+        if proc_def.params.is_empty() {
+            out.push('\n');
+            continue;
+        }
+
+        out.push_str(" {\n");
+        for param in proc_def.params {
+            out.push_str(&format!(
+                "  param \"{}\" type=\"{}\"\n",
+                escape(&param.name),
+                escape(&param.ty)
+            ));
+        }
+        out.push_str("}\n");
+    }
+
+    for query in queries {
+        out.push_str(&format!(
+            "query \"{}\" table=\"{}\"",
+            escape(&query.name),
+            escape(&query.table)
+        ));
+
+        if query.projection.is_empty() {
+            out.push('\n');
+            continue;
+        }
+
+        out.push_str(" {\n");
+        for column in query.projection {
+            out.push_str(&format!("  project \"{}\"\n", escape(&column)));
         }
         out.push_str("}\n");
     }
@@ -62,8 +122,7 @@ fn parse_table(node: &KdlNode) -> Result<AstTable, Error> {
                     name
                 )));
             }
-            let field = parse_field(child, &name)?;
-            fields.push(field);
+            fields.push(parse_field(child, &name)?);
         }
     }
 
@@ -73,9 +132,76 @@ fn parse_table(node: &KdlNode) -> Result<AstTable, Error> {
 fn parse_field(node: &KdlNode, table_name: &str) -> Result<AstField, Error> {
     let name = expect_single_string_value(node, "field")?;
     let ty = expect_string_property(node, "type")?;
-    ensure_only_property(node, "field", "type", table_name)?;
+    ensure_only_properties(node, "field", &["type"], table_name)?;
 
     Ok(AstField { name, ty })
+}
+
+fn parse_proc(node: &KdlNode) -> Result<AstProc, Error> {
+    let name = expect_single_string_value(node, "proc")?;
+    let table = expect_string_property(node, "table")?;
+    ensure_only_properties(node, "proc", &["table"], "")?;
+
+    let mut params = Vec::new();
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            if child.name().value() != "param" {
+                return Err(Error::Parse(format!(
+                    "unknown node '{}' in proc '{}', expected 'param'",
+                    child.name().value(),
+                    name
+                )));
+            }
+            params.push(parse_param(child, &name)?);
+        }
+    }
+
+    Ok(AstProc {
+        name,
+        table,
+        params,
+    })
+}
+
+fn parse_param(node: &KdlNode, proc_name: &str) -> Result<AstParam, Error> {
+    let name = expect_single_string_value(node, "param")?;
+    let ty = expect_string_property(node, "type")?;
+    ensure_only_properties(node, "param", &["type"], proc_name)?;
+
+    Ok(AstParam { name, ty })
+}
+
+fn parse_query(node: &KdlNode) -> Result<AstQuery, Error> {
+    let name = expect_single_string_value(node, "query")?;
+    let table = expect_string_property(node, "table")?;
+    ensure_only_properties(node, "query", &["table"], "")?;
+
+    let mut projection = Vec::new();
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            if child.name().value() != "project" {
+                return Err(Error::Parse(format!(
+                    "unknown node '{}' in query '{}', expected 'project'",
+                    child.name().value(),
+                    name
+                )));
+            }
+            projection.push(expect_single_string_value(child, "project")?);
+            ensure_no_properties(child, "project")?;
+            if child.children().is_some() {
+                return Err(Error::Parse(format!(
+                    "'project' node in query '{}' does not support children",
+                    name
+                )));
+            }
+        }
+    }
+
+    Ok(AstQuery {
+        name,
+        table,
+        projection,
+    })
 }
 
 fn expect_single_string_value(
@@ -135,24 +261,32 @@ fn ensure_no_properties(node: &KdlNode, kind: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn ensure_only_property(
+fn ensure_only_properties(
     node: &KdlNode,
     kind: &str,
-    property: &str,
-    table_name: &str,
+    allowed: &[&str],
+    parent_name: &str,
 ) -> Result<(), Error> {
     for entry in node.entries() {
         if let Some(name) = entry.name() {
-            if name.value() != property {
+            if !allowed.iter().any(|value| *value == name.value()) {
+                if parent_name.is_empty() {
+                    return Err(Error::Parse(format!(
+                        "'{}' node does not support property '{}'",
+                        kind,
+                        name.value()
+                    )));
+                }
                 return Err(Error::Parse(format!(
-                    "'{}' node in table '{}' does not support property '{}'",
+                    "'{}' node in '{}' does not support property '{}'",
                     kind,
-                    table_name,
+                    parent_name,
                     name.value()
                 )));
             }
         }
     }
+
     Ok(())
 }
 

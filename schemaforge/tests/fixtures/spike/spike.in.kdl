@@ -1,0 +1,16 @@
+table "people" {
+  field "id" type="i64"
+  field "name" type="text"
+  field "age" type="i64"
+}
+
+proc "insert_person" table="people" {
+  param "id" type="i64"
+  param "name" type="text"
+  param "age" type="i64"
+}
+
+query "list_names_and_ids" table="people" {
+  project "name"
+  project "id"
+}
